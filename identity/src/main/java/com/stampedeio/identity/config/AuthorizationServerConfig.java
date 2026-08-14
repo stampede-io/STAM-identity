@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -23,7 +24,6 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
-import org.springframework.security.oauth2.server.authorization.InMemoryOAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.client.InMemoryRegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
@@ -47,6 +47,7 @@ import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 
+import com.stampedeio.identity.domain.RefreshTokenRepository;
 import com.stampedeio.identity.domain.UserRepository;
 
 @Configuration
@@ -69,13 +70,20 @@ public class AuthorizationServerConfig {
 
     @Bean
     @Order(1)
-    SecurityFilterChain authorizationServerFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain authorizationServerFilterChain(HttpSecurity http,
+                                                       RegisteredClientRepository registeredClientRepository) throws Exception {
         OAuth2AuthorizationServerConfigurer authorizationServerConfigurer =
                 new OAuth2AuthorizationServerConfigurer();
         http
                 .securityMatcher(authorizationServerConfigurer.getEndpointsMatcher())
                 .with(authorizationServerConfigurer, authServer ->
-                        authServer.oidc(Customizer.withDefaults()))
+                        authServer
+                                .clientAuthentication(clientAuth -> clientAuth
+                                        .authenticationConverters(converters ->
+                                                converters.add(new PublicClientRefreshAuthenticationConverter()))
+                                        .authenticationProviders(providers ->
+                                                providers.add(new PublicClientRefreshAuthenticationProvider(registeredClientRepository))))
+                                .oidc(Customizer.withDefaults()))
                 .authorizeHttpRequests(authorize -> authorize.anyRequest().authenticated())
                 .exceptionHandling(exceptions -> exceptions
                         .defaultAuthenticationEntryPointFor(
@@ -85,8 +93,10 @@ public class AuthorizationServerConfig {
     }
 
     @Bean
-    OAuth2AuthorizationService authorizationService() {
-        return new InMemoryOAuth2AuthorizationService();
+    OAuth2AuthorizationService authorizationService(RefreshTokenRepository refreshTokenRepository,
+                                                    UserRepository userRepository,
+                                                    ApplicationEventPublisher eventPublisher) {
+        return new FamilyAwareAuthorizationService(refreshTokenRepository, userRepository, eventPublisher);
     }
 
     @Bean
