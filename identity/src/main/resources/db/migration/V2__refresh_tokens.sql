@@ -2,7 +2,7 @@ CREATE TABLE refresh_tokens (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     family_id       UUID         NOT NULL,
     token_hash      VARCHAR(255) NOT NULL UNIQUE,
-    user_id         UUID         NOT NULL REFERENCES users(id),
+    user_id         UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     authorization_id VARCHAR(255) NOT NULL,
     revoked         BOOLEAN      NOT NULL DEFAULT FALSE,
     replaced_by     UUID         REFERENCES refresh_tokens(id),
