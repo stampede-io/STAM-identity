@@ -61,7 +61,7 @@ public class FamilyAwareAuthorizationService implements OAuth2AuthorizationServi
     public OAuth2Authorization findByToken(String token, OAuth2TokenType tokenType) {
         OAuth2Authorization authorization = delegate.findByToken(token, tokenType);
 
-        if (authorization == null || !OAuth2TokenType.REFRESH_TOKEN.equals(tokenType)) {
+        if (!OAuth2TokenType.REFRESH_TOKEN.equals(tokenType)) {
             return authorization;
         }
 
@@ -79,10 +79,23 @@ public class FamilyAwareAuthorizationService implements OAuth2AuthorizationServi
             log.warn("Refresh token reuse detected for family {}; revoking entire family", familyId);
 
             refreshTokenRepository.revokeByFamilyId(familyId);
-            delegate.remove(authorization);
 
-            eventPublisher.publishEvent(new RefreshTokenReuseDetectedEvent(
-                    this, authorization.getPrincipalName(), familyId));
+            String principalName = null;
+            if (authorization != null) {
+                principalName = authorization.getPrincipalName();
+                delegate.remove(authorization);
+            } else {
+                OAuth2Authorization currentAuth = delegate.findById(tokenEntity.getAuthorizationId());
+                if (currentAuth != null) {
+                    principalName = currentAuth.getPrincipalName();
+                    delegate.remove(currentAuth);
+                }
+            }
+
+            if (principalName != null) {
+                eventPublisher.publishEvent(new RefreshTokenReuseDetectedEvent(
+                        this, principalName, familyId));
+            }
 
             return null;
         }
