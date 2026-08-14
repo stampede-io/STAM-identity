@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.stampedeio.identity.domain.RefreshTokenEntity;
 import com.stampedeio.identity.domain.RefreshTokenRepository;
+import com.stampedeio.identity.domain.UserRepository;
 
 public class FamilyAwareAuthorizationService implements OAuth2AuthorizationService {
 
@@ -26,11 +27,14 @@ public class FamilyAwareAuthorizationService implements OAuth2AuthorizationServi
 
     private final InMemoryOAuth2AuthorizationService delegate = new InMemoryOAuth2AuthorizationService();
     private final RefreshTokenRepository refreshTokenRepository;
+    private final UserRepository userRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     public FamilyAwareAuthorizationService(RefreshTokenRepository refreshTokenRepository,
+                                           UserRepository userRepository,
                                            ApplicationEventPublisher eventPublisher) {
         this.refreshTokenRepository = refreshTokenRepository;
+        this.userRepository = userRepository;
         this.eventPublisher = eventPublisher;
     }
 
@@ -131,12 +135,11 @@ public class FamilyAwareAuthorizationService implements OAuth2AuthorizationServi
     }
 
     private UUID extractUserId(OAuth2Authorization authorization) {
-        try {
-            return UUID.fromString(authorization.getPrincipalName());
-        } catch (IllegalArgumentException e) {
-            return UUID.nameUUIDFromBytes(
-                    authorization.getPrincipalName().getBytes(StandardCharsets.UTF_8));
-        }
+        String principalName = authorization.getPrincipalName();
+        return userRepository.findByEmail(principalName)
+                .map(user -> user.getId())
+                .orElseThrow(() -> new IllegalStateException(
+                        "No user found for principal: " + principalName));
     }
 
     static String hashToken(String tokenValue) {

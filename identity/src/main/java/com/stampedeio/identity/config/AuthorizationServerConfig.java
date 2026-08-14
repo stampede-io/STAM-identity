@@ -87,8 +87,9 @@ public class AuthorizationServerConfig {
 
     @Bean
     OAuth2AuthorizationService authorizationService(RefreshTokenRepository refreshTokenRepository,
+                                                    UserRepository userRepository,
                                                     ApplicationEventPublisher eventPublisher) {
-        return new FamilyAwareAuthorizationService(refreshTokenRepository, eventPublisher);
+        return new FamilyAwareAuthorizationService(refreshTokenRepository, userRepository, eventPublisher);
     }
 
     @Bean
