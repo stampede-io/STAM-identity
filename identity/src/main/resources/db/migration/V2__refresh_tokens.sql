@@ -5,7 +5,7 @@ CREATE TABLE refresh_tokens (
     user_id         UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     authorization_id VARCHAR(255) NOT NULL,
     revoked         BOOLEAN      NOT NULL DEFAULT FALSE,
-    replaced_by     UUID         REFERENCES refresh_tokens(id),
+    replaced_by     UUID         REFERENCES refresh_tokens(id) ON DELETE SET NULL,
     expires_at      TIMESTAMPTZ  NOT NULL,
     created_at      TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
