@@ -70,13 +70,20 @@ public class AuthorizationServerConfig {
 
     @Bean
     @Order(1)
-    SecurityFilterChain authorizationServerFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain authorizationServerFilterChain(HttpSecurity http,
+                                                       RegisteredClientRepository registeredClientRepository) throws Exception {
         OAuth2AuthorizationServerConfigurer authorizationServerConfigurer =
                 new OAuth2AuthorizationServerConfigurer();
         http
                 .securityMatcher(authorizationServerConfigurer.getEndpointsMatcher())
                 .with(authorizationServerConfigurer, authServer ->
-                        authServer.oidc(Customizer.withDefaults()))
+                        authServer
+                                .clientAuthentication(clientAuth -> clientAuth
+                                        .authenticationConverters(converters ->
+                                                converters.add(new PublicClientRefreshAuthenticationConverter()))
+                                        .authenticationProviders(providers ->
+                                                providers.add(new PublicClientRefreshAuthenticationProvider(registeredClientRepository))))
+                                .oidc(Customizer.withDefaults()))
                 .authorizeHttpRequests(authorize -> authorize.anyRequest().authenticated())
                 .exceptionHandling(exceptions -> exceptions
                         .defaultAuthenticationEntryPointFor(
