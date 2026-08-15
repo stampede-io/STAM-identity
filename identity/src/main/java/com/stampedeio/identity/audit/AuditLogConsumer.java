@@ -6,8 +6,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
 
 @Component
 public class AuditLogConsumer {
@@ -15,11 +15,11 @@ public class AuditLogConsumer {
     private static final Logger log = LoggerFactory.getLogger(AuditLogConsumer.class);
 
     private final AuditLogRepository repository;
-    private final ObjectMapper objectMapper;
+    private final JsonMapper jsonMapper;
 
-    public AuditLogConsumer(AuditLogRepository repository, ObjectMapper objectMapper) {
+    public AuditLogConsumer(AuditLogRepository repository, JsonMapper jsonMapper) {
         this.repository = repository;
-        this.objectMapper = objectMapper;
+        this.jsonMapper = jsonMapper;
     }
 
     @KafkaListener(topics = "identity.audit", groupId = "identity-audit-log")
@@ -28,8 +28,8 @@ public class AuditLogConsumer {
 
         String payload;
         try {
-            payload = objectMapper.writeValueAsString(event);
-        } catch (JsonProcessingException e) {
+            payload = jsonMapper.writeValueAsString(event);
+        } catch (JacksonException e) {
             log.error("Failed to serialize audit event {}", event.type(), e);
             return;
         }
