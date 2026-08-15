@@ -1,4 +1,6 @@
 spring:
+  autoconfigure:
+    exclude: org.springframework.boot.kafka.autoconfigure.KafkaAutoConfiguration
   datasource:
     url: jdbc:tc:postgresql:16-alpine:///identity?TC_TMPFS=/testtmpfs:rw
     username: test

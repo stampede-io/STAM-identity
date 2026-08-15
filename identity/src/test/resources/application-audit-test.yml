@@ -1,0 +1,34 @@
+spring:
+  datasource:
+    url: jdbc:tc:postgresql:16-alpine:///identity?TC_TMPFS=/testtmpfs:rw
+    username: test
+    password: test
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  kafka:
+    consumer:
+      group-id: identity-audit-log
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      auto-offset-reset: earliest
+      properties:
+        spring.json.trusted.packages: com.stampedeio.identity.audit
+        spring.json.value.default.type: com.stampedeio.identity.audit.AuditEvent
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+
+identity:
+  rsa:
+    key-id: test-key-1
+  client:
+    redirect-uri: http://127.0.0.1/callback
+    post-logout-redirect-uri: http://127.0.0.1
+  token:
+    access-token-ttl-minutes: 10
+    refresh-token-ttl-days: 7

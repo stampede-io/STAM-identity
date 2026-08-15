@@ -136,6 +136,9 @@ public class FamilyAwareAuthorizationService implements OAuth2AuthorizationServi
                 old.setReplacedBy(newEntity.getId());
                 old.setRevoked(true);
                 refreshTokenRepository.save(old);
+
+                eventPublisher.publishEvent(new TokenRefreshedEvent(
+                        this, authorization.getPrincipalName(), userId));
                 return;
             }
         }
