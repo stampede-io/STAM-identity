@@ -35,7 +35,7 @@ public class UserController {
     private final IdentityAuditPublisher auditPublisher;
 
     public UserController(UserRepository userRepository, PasswordEncoder passwordEncoder,
-                          @org.springframework.lang.Nullable IdentityAuditPublisher auditPublisher) {
+                          IdentityAuditPublisher auditPublisher) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.auditPublisher = auditPublisher;
@@ -73,15 +73,13 @@ public class UserController {
                 .map(User::getId)
                 .orElse(null);
 
-        if (auditPublisher != null) {
-            auditPublisher.publish(new AuditEvent.RoleChanged(
-                    target.getId(),
-                    adminId,
-                    oldRole,
-                    request.role().name(),
-                    Instant.now()
-            ));
-        }
+        auditPublisher.publish(new AuditEvent.RoleChanged(
+                target.getId(),
+                adminId,
+                oldRole,
+                request.role().name(),
+                Instant.now()
+        ));
 
         return ResponseEntity.ok(new UserResponse(target.getId(), target.getEmail(), target.getRole().name()));
     }

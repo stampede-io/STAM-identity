@@ -1,27 +1,26 @@
 package com.stampedeio.identity.audit;
 
-import java.util.UUID;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 
 @Service
-@ConditionalOnBean(KafkaTemplate.class)
 public class IdentityAuditPublisher {
 
     private static final Logger log = LoggerFactory.getLogger(IdentityAuditPublisher.class);
     private static final String TOPIC = "identity.audit";
 
+    @Nullable
     private final KafkaTemplate<String, AuditEvent> kafkaTemplate;
 
-    public IdentityAuditPublisher(KafkaTemplate<String, AuditEvent> kafkaTemplate) {
+    public IdentityAuditPublisher(@Nullable KafkaTemplate<String, AuditEvent> kafkaTemplate) {
         this.kafkaTemplate = kafkaTemplate;
     }
 
     public void publish(AuditEvent event) {
+        if (kafkaTemplate == null) return;
         String key = resolveKey(event);
         kafkaTemplate.send(TOPIC, key, event)
                 .whenComplete((result, ex) -> {
