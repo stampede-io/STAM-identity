@@ -12,8 +12,6 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
-
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -24,7 +22,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -66,9 +63,6 @@ class AuditEventIT {
     @Autowired
     private IdentityAuditPublisher auditPublisher;
 
-    @Autowired
-    private KafkaTemplate<String, AuditEvent> kafkaTemplate;
-
     private String baseUrl;
 
     @BeforeEach
@@ -84,7 +78,8 @@ class AuditEventIT {
         AuditEvent.UserLoggedIn event = new AuditEvent.UserLoggedIn(
                 UUID.randomUUID(), "direct-test@stampede.io", null, Instant.now(), "test-corr-id");
 
-        kafkaTemplate.send("identity.audit", "test-key", event).get(5, TimeUnit.SECONDS);
+        auditPublisher.publish(event);
+        Thread.sleep(2000);
 
         try (KafkaConsumer<String, String> consumer = createStringConsumer()) {
             consumer.subscribe(List.of("identity.audit"));
