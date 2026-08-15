@@ -3,8 +3,8 @@ package com.stampedeio.identity.audit;
 import java.time.Instant;
 import java.util.UUID;
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.event.EventListener;
+import org.springframework.lang.Nullable;
 import org.springframework.security.authentication.event.AuthenticationFailureBadCredentialsEvent;
 import org.springframework.security.authentication.event.AuthenticationSuccessEvent;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2AuthorizationCodeRequestAuthenticationToken;
@@ -15,19 +15,20 @@ import com.stampedeio.identity.config.TokenRefreshedEvent;
 import com.stampedeio.identity.domain.UserRepository;
 
 @Component
-@ConditionalOnBean(IdentityAuditPublisher.class)
 public class AuditEventListener {
 
+    @Nullable
     private final IdentityAuditPublisher publisher;
     private final UserRepository userRepository;
 
-    public AuditEventListener(IdentityAuditPublisher publisher, UserRepository userRepository) {
+    public AuditEventListener(@Nullable IdentityAuditPublisher publisher, UserRepository userRepository) {
         this.publisher = publisher;
         this.userRepository = userRepository;
     }
 
     @EventListener
     public void onAuthenticationSuccess(AuthenticationSuccessEvent event) {
+        if (publisher == null) return;
         if (event.getAuthentication() instanceof OAuth2AuthorizationCodeRequestAuthenticationToken) {
             return;
         }
@@ -46,6 +47,7 @@ public class AuditEventListener {
 
     @EventListener
     public void onAuthenticationFailure(AuthenticationFailureBadCredentialsEvent event) {
+        if (publisher == null) return;
         String email = event.getAuthentication().getName();
         String reason = event.getException().getMessage();
 
@@ -59,6 +61,7 @@ public class AuditEventListener {
 
     @EventListener
     public void onTokenRefreshed(TokenRefreshedEvent event) {
+        if (publisher == null) return;
         publisher.publish(new AuditEvent.TokenRefreshed(
                 event.getUserId(),
                 event.getPrincipalName(),
@@ -69,6 +72,7 @@ public class AuditEventListener {
 
     @EventListener
     public void onRefreshTokenReuse(RefreshTokenReuseDetectedEvent event) {
+        if (publisher == null) return;
         publisher.publish(new AuditEvent.RefreshTokenReuseDetected(
                 event.getPrincipalName(),
                 event.getFamilyId(),
