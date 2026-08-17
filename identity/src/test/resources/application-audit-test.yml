@@ -1,3 +1,7 @@
+eureka:
+  client:
+    enabled: false
+
 spring:
   datasource:
     url: jdbc:tc:postgresql:16-alpine:///identity?TC_TMPFS=/testtmpfs:rw
