@@ -1,4 +1,11 @@
+eureka:
+  client:
+    enabled: false
+
 spring:
+  cloud:
+    config:
+      enabled: false
   autoconfigure:
     exclude: org.springframework.boot.kafka.autoconfigure.KafkaAutoConfiguration
   datasource:

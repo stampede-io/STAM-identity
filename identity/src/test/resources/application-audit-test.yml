@@ -1,4 +1,11 @@
+eureka:
+  client:
+    enabled: false
+
 spring:
+  cloud:
+    config:
+      enabled: false
   datasource:
     url: jdbc:tc:postgresql:16-alpine:///identity?TC_TMPFS=/testtmpfs:rw
     username: test
