@@ -1,0 +1,30 @@
+eureka:
+  client:
+    enabled: false
+
+spring:
+  cloud:
+    config:
+      enabled: false
+  autoconfigure:
+    exclude: org.springframework.boot.kafka.autoconfigure.KafkaAutoConfiguration
+  datasource:
+    url: jdbc:tc:postgresql:16-alpine:///identity?TC_TMPFS=/testtmpfs:rw
+    username: test
+    password: test
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+identity:
+  rsa:
+    key-id: test-key-1
+  client:
+    redirect-uri: http://127.0.0.1/callback
+    post-logout-redirect-uri: http://127.0.0.1
+  token:
+    access-token-ttl-minutes: 10
+    refresh-token-ttl-days: 7
