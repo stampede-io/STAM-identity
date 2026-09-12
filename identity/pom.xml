@@ -32,6 +32,8 @@
 		<postgresql.version>42.7.12</postgresql.version>
 		<testcontainers.version>1.21.3</testcontainers.version>
 		<httpcore5.version>5.4.3</httpcore5.version>
+		<!-- CVE-2026-65182 CRITICAL: security constraint bypass, fixed in 11.0.25 -->
+		<tomcat.version>11.0.25</tomcat.version>
 	</properties>
 	<dependencyManagement>
 		<dependencies>
