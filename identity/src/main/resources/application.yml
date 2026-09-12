@@ -30,6 +30,13 @@ spring:
 
 server:
   port: ${SERVER_PORT:8084}
+  # STAM-440: identity sits behind the gateway. Without this, Spring Security's
+  # redirects (LoginUrlAuthenticationEntryPoint, the post-authorize bounce to
+  # /login) are built from the raw request it sees — Host: identity:8080 inside
+  # compose — instead of the external gateway origin the browser is actually
+  # talking to. "framework" makes it honor the X-Forwarded-* headers Spring
+  # Cloud Gateway already sends.
+  forward-headers-strategy: framework
 
 eureka:
   client:
