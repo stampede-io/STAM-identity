@@ -1,0 +1,6 @@
+apiVersion: v2
+name: identity
+description: STAMPEDE identity service — OAuth2.1 Authorization Server, PKCE, RBAC, rotating refresh tokens
+type: application
+version: 0.0.1-SNAPSHOT
+appVersion: "0.0.1-SNAPSHOT"
