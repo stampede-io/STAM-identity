@@ -51,6 +51,9 @@ management:
       exposure:
         include: health,metrics,prometheus
 
+demo:
+  mode: ${DEMO_MODE:false}
+
 identity:
   rsa:
     key-id: ${RSA_KEY_ID:stampede-key-1}
