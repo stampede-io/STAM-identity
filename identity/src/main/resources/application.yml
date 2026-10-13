@@ -1,8 +1,6 @@
 spring:
   application:
     name: identity
-  config:
-    import: ${SPRING_CONFIG_IMPORT:optional:configserver:http://localhost:8888}
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:identity}
     username: ${DB_USERNAME:identity}
@@ -30,19 +28,29 @@ spring:
 
 server:
   port: ${SERVER_PORT:8084}
-
-eureka:
-  client:
-    service-url:
-      defaultZone: ${EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE:http://localhost:8761/eureka}
-  instance:
-    prefer-ip-address: true
+  # STAM-440: identity sits behind the gateway. Without this, Spring Security's
+  # redirects (LoginUrlAuthenticationEntryPoint, the post-authorize bounce to
+  # /login) are built from the raw request it sees — Host: identity:8080 inside
+  # compose — instead of the external gateway origin the browser is actually
+  # talking to. "framework" makes it honor the X-Forwarded-* headers Spring
+  # Cloud Gateway already sends.
+  forward-headers-strategy: framework
 
 management:
   endpoints:
     web:
       exposure:
         include: health,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        startup:
+          include: readinessState
+
+demo:
+  mode: ${DEMO_MODE:false}
 
 identity:
   rsa:
