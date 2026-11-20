@@ -1,13 +1,11 @@
 package com.stampedeio.identity.config;
 
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.interfaces.RSAPrivateKey;
-import java.security.interfaces.RSAPublicKey;
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
@@ -53,8 +51,11 @@ import com.stampedeio.identity.domain.UserRepository;
 @Configuration
 public class AuthorizationServerConfig {
 
-    @Value("${identity.rsa.key-id}")
-    private String rsaKeyId;
+    private static final Logger log = LoggerFactory.getLogger(AuthorizationServerConfig.class);
+
+    // STAM-454: optional; see SigningKeys. Unset means a per-start key (dev only).
+    @Value("${identity.rsa.private-key:}")
+    private String rsaPrivateKey;
 
     @Value("${identity.client.redirect-uri}")
     private String redirectUri;
@@ -153,15 +154,15 @@ public class AuthorizationServerConfig {
 
     @Bean
     JWKSource<SecurityContext> jwkSource() {
-        KeyPair keyPair = generateRsaKey();
-        RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
-        RSAPrivateKey privateKey = (RSAPrivateKey) keyPair.getPrivate();
-        RSAKey rsaKey = new RSAKey.Builder(publicKey)
-                .privateKey(privateKey)
-                .keyID(rsaKeyId)
-                .build();
-        JWKSet jwkSet = new JWKSet(rsaKey);
-        return new ImmutableJWKSet<>(jwkSet);
+        RSAKey rsaKey = SigningKeys.load(rsaPrivateKey);
+        if (rsaPrivateKey.isBlank()) {
+            log.warn("No IDENTITY_RSA_PRIVATE_KEY: signing with a key generated for this start only (kid={}). "
+                    + "Tokens it issued stop validating when identity restarts, and replicas disagree. "
+                    + "Set the key for any shared environment.", rsaKey.getKeyID());
+        } else {
+            log.info("Signing JWTs with the configured key, kid={}", rsaKey.getKeyID());
+        }
+        return new ImmutableJWKSet<>(new JWKSet(rsaKey));
     }
 
     @Bean
@@ -172,15 +173,5 @@ public class AuthorizationServerConfig {
     @Bean
     AuthorizationServerSettings authorizationServerSettings() {
         return AuthorizationServerSettings.builder().build();
-    }
-
-    private static KeyPair generateRsaKey() {
-        try {
-            KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
-            keyPairGenerator.initialize(2048);
-            return keyPairGenerator.generateKeyPair();
-        } catch (Exception ex) {
-            throw new IllegalStateException("Failed to generate RSA key pair", ex);
-        }
     }
 }
