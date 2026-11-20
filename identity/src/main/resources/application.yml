@@ -20,9 +20,13 @@ spring:
     consumer:
       group-id: identity-audit-log
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      # STAM-452: bytes that aren't JSON would fail inside poll(), before the
+      # error handler, and stall the partition forever. The wrapper turns
+      # that into a non-retryable DeserializationException: logged, skipped.
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
       auto-offset-reset: earliest
       properties:
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
         spring.json.trusted.packages: com.stampedeio.identity.audit
         spring.json.value.default.type: com.stampedeio.identity.audit.AuditEvent
 
