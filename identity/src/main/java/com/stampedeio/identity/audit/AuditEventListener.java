@@ -7,6 +7,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.lang.Nullable;
 import org.springframework.security.authentication.event.AuthenticationFailureBadCredentialsEvent;
 import org.springframework.security.authentication.event.AuthenticationSuccessEvent;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2AuthorizationCodeRequestAuthenticationToken;
 import org.springframework.stereotype.Component;
 
@@ -30,6 +31,11 @@ public class AuditEventListener {
     public void onAuthenticationSuccess(AuthenticationSuccessEvent event) {
         if (publisher == null) return;
         if (event.getAuthentication() instanceof OAuth2AuthorizationCodeRequestAuthenticationToken) {
+            return;
+        }
+        // STAM-456: a bearer token validated on the /api/** chain is not a
+        // login; without this every API call would be audited as UserLoggedIn.
+        if (event.getAuthentication() instanceof JwtAuthenticationToken) {
             return;
         }
 
