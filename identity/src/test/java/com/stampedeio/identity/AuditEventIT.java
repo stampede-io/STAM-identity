@@ -206,15 +206,24 @@ class AuditEventIT {
 
         String loginRedirect = authResponse.headers().firstValue("Location").orElseThrow();
 
+        // Send the authorize request's session cookie, as a browser would:
+        // that session holds the saved authorize request, and the CSRF token
+        // the form is rendered with is stored in it too (STAM-453).
+        HttpRequest.Builder loginPageRequest = HttpRequest.newBuilder()
+                .uri(URI.create(resolveUrl(loginRedirect))).GET();
+        String authorizeSession = extractSessionCookie(authResponse.headers().allValues("Set-Cookie"));
+        if (authorizeSession != null) {
+            loginPageRequest.header("Cookie", authorizeSession);
+        }
         HttpResponse<String> loginPageResponse = client.send(
-                HttpRequest.newBuilder().uri(URI.create(resolveUrl(loginRedirect))).GET().build(),
-                HttpResponse.BodyHandlers.ofString());
+                loginPageRequest.build(), HttpResponse.BodyHandlers.ofString());
 
         String sessionCookie = extractSessionCookie(loginPageResponse.headers().allValues("Set-Cookie"));
         String authCookie = extractSessionCookie(authResponse.headers().allValues("Set-Cookie"));
         String combinedCookies = combineCookies(authCookie, sessionCookie);
 
-        String loginBody = "username=" + email + "&password=" + password;
+        String loginBody = "username=" + email + "&password=" + password
+                + LoginPage.csrfParam(loginPageResponse.body());
         HttpRequest.Builder loginRequestBuilder = HttpRequest.newBuilder()
                 .uri(URI.create(baseUrl + "/login"))
                 .header("Content-Type", "application/x-www-form-urlencoded");

@@ -6,7 +6,6 @@ import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -23,9 +22,19 @@ public class SecurityConfig {
     @Order(3)
     SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(AbstractHttpConfigurer::disable)
+                // STAM-453: CSRF stays on for the session-cookie form login,
+                // or a hostile page can POST the attacker's credentials to
+                // /login and sign the victim's browser in as the attacker.
+                // /api/** is JSON the SPA sends through the gateway (register,
+                // role change): no form, and the gateway's CORS policy already
+                // blocks cross-origin JSON, so the token doesn't apply there.
+                .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**"))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/**").permitAll()
+                        // Boot forwards errors (e.g. a CSRF 403) to /error;
+                        // without this an anonymous caller gets a 302 to
+                        // /login instead of the real status.
+                        .requestMatchers("/error").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/users/register").permitAll()
                         .requestMatchers(HttpMethod.PUT, "/api/v1/users/*/role").hasRole("ADMIN")
                         .anyRequest().authenticated())
