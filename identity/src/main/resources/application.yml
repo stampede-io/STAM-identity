@@ -58,7 +58,10 @@ demo:
 
 identity:
   rsa:
-    key-id: ${RSA_KEY_ID:stampede-key-1}
+    # STAM-454: RSA PKCS#8 private key (PEM or base64) shared by every restart
+    # and replica. Unset = a key generated per start, local dev only. The kid
+    # is the key's thumbprint, so it changes whenever the key does.
+    private-key: ${IDENTITY_RSA_PRIVATE_KEY:}
   client:
     redirect-uri: ${CLIENT_REDIRECT_URI:http://localhost:3000/callback}
     post-logout-redirect-uri: ${CLIENT_POST_LOGOUT_REDIRECT_URI:http://localhost:3000}
