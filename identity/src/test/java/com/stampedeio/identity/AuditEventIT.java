@@ -155,6 +155,35 @@ class AuditEventIT {
         }
     }
 
+    @Autowired
+    private com.stampedeio.identity.audit.AuditLogRepository auditLogRepository;
+
+    @Test
+    void stam452_nonJsonRecord_isSkipped_andTheNextAuditEventIsStillStored() throws Exception {
+        // STAM-452: bytes that aren't JSON fail in the deserializer, before
+        // the listener. Without ErrorHandlingDeserializer the consumer
+        // re-polls that offset forever and no later audit event is stored.
+        try (var raw = new org.apache.kafka.clients.producer.KafkaProducer<String, byte[]>(java.util.Map.of(
+                org.apache.kafka.clients.producer.ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers(),
+                org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+                        org.apache.kafka.common.serialization.StringSerializer.class,
+                org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+                        org.apache.kafka.common.serialization.ByteArraySerializer.class))) {
+            raw.send(new org.apache.kafka.clients.producer.ProducerRecord<>("identity.audit", "poison",
+                    "not-json-at-all".getBytes(java.nio.charset.StandardCharsets.UTF_8))).get();
+        }
+        String email = "after-poison-" + UUID.randomUUID() + "@stampede.io";
+        auditPublisher.publish(new AuditEvent.UserLoggedIn(UUID.randomUUID(), email, null, Instant.now(), "poison-corr"));
+
+        boolean stored = false;
+        long deadline = System.currentTimeMillis() + 30_000;
+        while (!stored && System.currentTimeMillis() < deadline) {
+            stored = auditLogRepository.findAll().stream().anyMatch(e -> e.getPayload().contains(email));
+            if (!stored) Thread.sleep(250);
+        }
+        assertThat(stored).as("the audit event behind the poison record must still be stored").isTrue();
+    }
+
     private void performLogin(String email, String password) throws Exception {
         String codeVerifier = generateCodeVerifier();
         String codeChallenge = generateCodeChallenge(codeVerifier);
@@ -177,15 +206,24 @@ class AuditEventIT {
 
         String loginRedirect = authResponse.headers().firstValue("Location").orElseThrow();
 
+        // Send the authorize request's session cookie, as a browser would:
+        // that session holds the saved authorize request, and the CSRF token
+        // the form is rendered with is stored in it too (STAM-453).
+        HttpRequest.Builder loginPageRequest = HttpRequest.newBuilder()
+                .uri(URI.create(resolveUrl(loginRedirect))).GET();
+        String authorizeSession = extractSessionCookie(authResponse.headers().allValues("Set-Cookie"));
+        if (authorizeSession != null) {
+            loginPageRequest.header("Cookie", authorizeSession);
+        }
         HttpResponse<String> loginPageResponse = client.send(
-                HttpRequest.newBuilder().uri(URI.create(resolveUrl(loginRedirect))).GET().build(),
-                HttpResponse.BodyHandlers.ofString());
+                loginPageRequest.build(), HttpResponse.BodyHandlers.ofString());
 
         String sessionCookie = extractSessionCookie(loginPageResponse.headers().allValues("Set-Cookie"));
         String authCookie = extractSessionCookie(authResponse.headers().allValues("Set-Cookie"));
         String combinedCookies = combineCookies(authCookie, sessionCookie);
 
-        String loginBody = "username=" + email + "&password=" + password;
+        String loginBody = "username=" + email + "&password=" + password
+                + LoginPage.csrfParam(loginPageResponse.body());
         HttpRequest.Builder loginRequestBuilder = HttpRequest.newBuilder()
                 .uri(URI.create(baseUrl + "/login"))
                 .header("Content-Type", "application/x-www-form-urlencoded");

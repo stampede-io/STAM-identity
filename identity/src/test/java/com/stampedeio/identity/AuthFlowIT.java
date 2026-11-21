@@ -52,6 +52,24 @@ class AuthFlowIT {
     }
 
     @Test
+    void crossSiteLoginWithoutCsrfToken_isRejected() throws Exception {
+        // STAM-453: login CSRF. A hostile page auto-submits the attacker's
+        // credentials to /login from the victim's browser: cross-site, no
+        // token. Accepting it signs the victim in as the attacker.
+        HttpClient client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build();
+        HttpResponse<String> response = client.send(HttpRequest.newBuilder()
+                        .uri(URI.create(baseUrl + "/login"))
+                        .header("Content-Type", "application/x-www-form-urlencoded")
+                        .header("Origin", "https://attacker.example")
+                        .POST(HttpRequest.BodyPublishers.ofString("username=test@stampede.io&password=password123"))
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
+
+        assertThat(response.statusCode()).isEqualTo(403);
+        assertThat(response.headers().firstValue("Location")).isEmpty();
+    }
+
+    @Test
     void fullPkceAuthCodeFlow_issuesTokensWithCorrectClaims() throws Exception {
         String codeVerifier = generateCodeVerifier();
         String codeChallenge = generateCodeChallenge(codeVerifier);
@@ -78,9 +96,17 @@ class AuthFlowIT {
         assertThat(loginRedirect).contains("/login");
 
         // Step 2: Get the login page to extract session cookie
+        // Send the authorize request's session cookie, as a browser would:
+        // that session holds the saved authorize request, and the CSRF token
+        // the form is rendered with is stored in it too (STAM-453).
+        HttpRequest.Builder loginPageRequest = HttpRequest.newBuilder()
+                .uri(URI.create(resolveUrl(loginRedirect))).GET();
+        String authorizeSession = extractSessionCookie(authResponse.headers().allValues("Set-Cookie"));
+        if (authorizeSession != null) {
+            loginPageRequest.header("Cookie", authorizeSession);
+        }
         HttpResponse<String> loginPageResponse = client.send(
-                HttpRequest.newBuilder().uri(URI.create(resolveUrl(loginRedirect))).GET().build(),
-                HttpResponse.BodyHandlers.ofString());
+                loginPageRequest.build(), HttpResponse.BodyHandlers.ofString());
 
         String sessionCookie = extractSessionCookie(loginPageResponse.headers().allValues("Set-Cookie"));
         // Also grab cookie from the initial auth response
@@ -88,7 +114,8 @@ class AuthFlowIT {
         String combinedCookies = combineCookies(authCookie, sessionCookie);
 
         // Step 3: POST login credentials
-        String loginBody = "username=test@stampede.io&password=password123";
+        String loginBody = "username=test@stampede.io&password=password123"
+                + LoginPage.csrfParam(loginPageResponse.body());
         HttpRequest.Builder loginRequestBuilder = HttpRequest.newBuilder()
                 .uri(URI.create(baseUrl + "/login"))
                 .header("Content-Type", "application/x-www-form-urlencoded");

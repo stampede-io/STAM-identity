@@ -1,9 +1,11 @@
 package com.stampedeio.identity.api;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.util.HtmlUtils;
 
 @Controller
 public class LoginController {
@@ -13,7 +15,7 @@ public class LoginController {
 
     @GetMapping("/login")
     @ResponseBody
-    public String loginPage() {
+    public String loginPage(CsrfToken csrf) {
         // STAM-60 / AC1: the real login form lives here, server-rendered by
         // identity (SecurityConfig's formLogin().loginPage("/login")) — the
         // React SPA never renders its own login UI, it only handles the
@@ -33,6 +35,7 @@ public class LoginController {
                 <body>
                 <h2>Login</h2>
                 <form method="post" action="/login">
+                  <input type="hidden" name="%s" value="%s"/>
                   <label>Email: <input type="email" name="username" required/></label><br/><br/>
                   <label>Password: <input type="password" name="password" required/></label><br/><br/>
                   <button type="submit">Log in</button>
@@ -40,6 +43,9 @@ public class LoginController {
                 %s
                 </body>
                 </html>
-                """.formatted(demoCreds);
+                """.formatted(
+                // STAM-453: without this token the login POST is rejected,
+                // which is what stops login CSRF.
+                HtmlUtils.htmlEscape(csrf.getParameterName()), HtmlUtils.htmlEscape(csrf.getToken()), demoCreds);
     }
 }
