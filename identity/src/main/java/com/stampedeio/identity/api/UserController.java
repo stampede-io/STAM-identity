@@ -1,12 +1,11 @@
 package com.stampedeio.identity.api;
 
 import java.net.URI;
+import java.security.Principal;
 import java.time.Instant;
 import java.util.UUID;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -61,7 +60,9 @@ public class UserController {
     @PutMapping("/{id}/role")
     public ResponseEntity<UserResponse> changeRole(@PathVariable UUID id,
                                                     @Valid @RequestBody RoleChangeRequest request,
-                                                    @AuthenticationPrincipal UserDetails admin) {
+                                                    // STAM-456: the JWT's subject (the email) on the
+                                                    // API chain; UserDetails was null for a JWT.
+                                                    Principal admin) {
         User target = userRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + id));
 
@@ -69,7 +70,7 @@ public class UserController {
         target.setRole(request.role());
         target = userRepository.save(target);
 
-        UUID adminId = userRepository.findByEmail(admin.getUsername())
+        UUID adminId = userRepository.findByEmail(admin.getName())
                 .map(User::getId)
                 .orElse(null);
 
